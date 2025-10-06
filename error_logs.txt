@@ -1,0 +1,13 @@
+  // Look Into Date Not Validating Proprly
+  // {
+  //   label: "Birth Date",
+  //   name: "birthDate",
+  //   input_type: "date",
+  //   defaultValue: new Date().toISOString().slice(0, 16),
+  //   validation: {
+  //     data_type: "date",
+  //     required: false,
+  //   },
+  // },
+
+  //look for a better wayt to update verified, through triggetres.....do research
