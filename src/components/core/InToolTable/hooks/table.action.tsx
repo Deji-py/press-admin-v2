@@ -7,6 +7,7 @@ type FetchTableDataParams = {
   excluded_columns?: string[];
   current_page: number;
   page_size: number;
+  order_by?: string; // Optional: specify the ID column name, defaults to 'id'
 };
 
 type FetchTableDataResult = {
@@ -20,6 +21,7 @@ export const fetchTableData = async ({
   excluded_columns = [],
   current_page,
   page_size,
+  order_by = "id",
 }: FetchTableDataParams): Promise<FetchTableDataResult> => {
   try {
     // Calculate correct range for pagination
@@ -48,7 +50,8 @@ export const fetchTableData = async ({
     const { data, count, error } = await supabaseClient
       .from(table_name)
       .select(columns.join(","), { count: "exact" })
-      .range(from, to);
+      .range(from, to)
+      .order(order_by, { ascending: false });
 
     if (error) {
       throw error;

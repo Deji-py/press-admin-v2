@@ -13,7 +13,8 @@ import { toast } from "sonner";
 interface TableQueryProps {
   table_name: string;
   excluded_columns?: string[];
-  id_column?: string; // Optional: specify the ID column name for deletions/updates
+  id_column?: string;
+  order_by?: string;
 }
 
 interface DeleteMutationParams {
@@ -33,6 +34,7 @@ function useTableQuery({
   table_name,
   excluded_columns,
   id_column = "id",
+  order_by = "created_at",
 }: TableQueryProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -50,6 +52,7 @@ function useTableQuery({
         excluded_columns,
         current_page,
         page_size,
+        order_by,
       }),
   });
 

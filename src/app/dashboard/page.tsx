@@ -1,37 +1,26 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
+
 import {
-  Filter,
   TrendingUp,
   TrendingDown,
   Users,
   FileText,
-  Eye,
-  Share2,
   DollarSign,
-  Calendar,
   Globe,
-  Mail,
-  BarChart3,
-  PieChart,
   Activity,
-  Clock,
-  Target,
   Newspaper,
+  Target,
 } from "lucide-react";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { cn } from "@/lib/utils";
@@ -46,71 +35,84 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-export const description = "A bar chart with a label";
-const chartData = [
-  { month: "January", desktop: 186 },
-  { month: "February", desktop: 305 },
-  { month: "March", desktop: 237 },
-  { month: "April", desktop: 73 },
-  { month: "May", desktop: 209 },
-  { month: "June", desktop: 214 },
-  { month: "July", desktop: 186 },
-  { month: "August", desktop: 305 },
-  { month: "September", desktop: 237 },
-  { month: "October", desktop: 73 },
-  { month: "November", desktop: 209 },
-  { month: "December", desktop: 214 },
-];
+import { useMonthlyPressReleases } from "@/hooks/useMonthlyPressReleases";
+import { useBusinessMetrics } from "@/hooks/useBusinessMetrics";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useActivities } from "@/hooks/useActivities";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+const description = "A bar chart with a label";
+
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
+  count: {
+    label: "Press Releases",
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
-export function ChartBarLabel() {
+
+function ChartBarLabel() {
+  const { data: monthlyData, loading } = useMonthlyPressReleases();
+
+  const chartData = monthlyData?.monthlyPressReleases || [];
+  const year = monthlyData?.year || new Date().getFullYear();
+
   return (
     <Card className="w-full xl:col-span-2 h-full flex flex-col p-6">
       <div className="flex flex-col gap-1 pb-4 mb-4 border-b">
-        <h3 className="text-lg font-semibold">Bar Chart - Label</h3>
-        <p className="text-sm text-muted-foreground">January - June 2024</p>
+        <h3 className="text-lg font-semibold">Monthly Press Releases</h3>
+        <p className="text-sm text-muted-foreground">
+          {loading ? "Loading..." : `January - December ${year}`}
+        </p>
       </div>
       <div className="flex-1 flex items-center justify-center min-h-0">
-        <ChartContainer config={chartConfig} className="h-[200px] w-full">
-          <BarChart
-            accessibilityLayer
-            data={chartData}
-            margin={{
-              top: 20,
-            }}
-          >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="month"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              tickFormatter={(value) => value.slice(0, 3)}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Bar dataKey="desktop" fill="var(--color-desktop)" radius={8}>
-              <LabelList
-                position="top"
-                offset={12}
-                className="fill-foreground"
-                fontSize={12}
+        {loading ? (
+          <div className="text-sm text-muted-foreground">
+            Loading chart data...
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No data available</div>
+        ) : (
+          <ChartContainer config={chartConfig} className="h-[200px] w-full">
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 25,
+              }}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
               />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="count" fill="var(--color-count)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
       </div>
     </Card>
   );
 }
+
 export default function Page() {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("weekly");
+
+  const { statistics } = useBusinessMetrics();
+  const { activities } = useActivities();
 
   // Core KPIs for Press Release Management
   const coreMetrics = [
@@ -148,41 +150,54 @@ export default function Page() {
     },
   ];
 
-  // SaaS Business Metrics
-  const businessMetrics = [
-    {
-      label: "Monthly Recurring Revenue",
-      value: "$127,450",
-      change: "+23.1%",
-      isPositive: true,
-      icon: DollarSign,
-      period: "MRR",
-    },
-    {
-      label: "Active Subscribers",
-      value: "1,847",
-      change: "+5.4%",
-      isPositive: true,
-      icon: Users,
-      period: "This month",
-    },
-    {
-      label: "Churn Rate",
-      value: "2.8%",
-      change: "-0.5%",
-      isPositive: true,
-      icon: TrendingDown,
-      period: "Monthly",
-    },
-    {
-      label: "Customer LTV",
-      value: "$4,250",
-      change: "+8.9%",
-      isPositive: true,
-      icon: Target,
-      period: "Average",
-    },
-  ];
+  // Map icons to metric labels
+  const metricIcons: Record<string, any> = {
+    "Monthly Recurring Revenue": DollarSign,
+    "Active Subscriptions": Users,
+    "Churn Rate": TrendingDown,
+    "Industries Served": Target,
+  };
+
+  // SaaS Business Metrics - Using live data from API
+  const businessMetrics = statistics?.businessMetrics
+    ? statistics.businessMetrics.map((metric) => ({
+        ...metric,
+        icon: metricIcons[metric.label] || DollarSign,
+      }))
+    : [
+        {
+          label: "Monthly Recurring Revenue",
+          value: "Loading...",
+          change: "0.0%",
+          isPositive: true,
+          icon: DollarSign,
+          period: "MRR",
+        },
+        {
+          label: "Active Subscriptions",
+          value: "Loading...",
+          change: "0.0%",
+          isPositive: true,
+          icon: Users,
+          period: "This month",
+        },
+        {
+          label: "Churn Rate",
+          value: "Loading...",
+          change: "0.0%",
+          isPositive: true,
+          icon: TrendingDown,
+          period: "Monthly",
+        },
+        {
+          label: "Industries Served",
+          value: "Loading...",
+          change: "0.0%",
+          isPositive: true,
+          icon: Target,
+          period: "This month",
+        },
+      ];
 
   // Top Performing Releases
   const topReleases = [
@@ -341,7 +356,11 @@ export default function Page() {
                     {/* Main value and change */}
                     <div className="flex z-10 relative items-end justify-between">
                       <div className="text-3xl font-bold text-foreground">
-                        {metric.value}
+                        {metric.value.includes("Loading...") ? (
+                          <Skeleton className="w-20 h-4  rounded-md bg-black/10 dark:bg-white/20" />
+                        ) : (
+                          metric.value
+                        )}
                       </div>
                       <Badge
                         variant={metric.isPositive ? "default" : "destructive"}
@@ -351,6 +370,7 @@ export default function Page() {
                             : "bg-red-500/20 text-red-700 dark:bg-red-500/15 dark:text-red-400"
                         }`}
                       >
+                        {metric.isPositive ? "+" : "-"}
                         {metric.change}
                       </Badge>
                     </div>
@@ -438,90 +458,55 @@ export default function Page() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <IconTimelineEvent className="h-5 w-5 text-muted-foreground" />
-                Activities
+                Activities{" "}
+                <Badge
+                  variant="secondary"
+                  className="text-xs  bg-green-300 text-green-700 dark:bg-green-500/15 dark:text-green-400"
+                >
+                  new
+                </Badge>
               </CardTitle>
               <CardAction className=" text-sm text-muted-foreground cursor-pointer">
                 View All
               </CardAction>
             </CardHeader>
             <CardContent>
-              <div className="relative">
+              <div className="relative max-h-[250px]   overflow-y-scroll scroll-hidden">
+                <div className="top-0 sticky w-full h-[280px] bg-gradient-to-b from-transparent via-transparent to-card z-20"></div>
                 {/* Timeline line */}
-                <div className="absolute top-6 bottom-10 left-5 w-px bg-border"></div>
 
-                {/* Sarah Johnson */}
-                <div className="relative mb-6 flex">
-                  <div className="z-10 flex-shrink-0">
-                    <div className="size-10 rounded-full bg-secondary backdrop-blur-2xl flex items-center justify-center text-primary font-semibold text-sm ring-4 ring-primary/30">
-                      SJ
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <div className="flex items-baseline">
-                      <h3 className="text-sm font-medium text-foreground">
-                        Sarah Johnson
-                      </h3>
-                      <span className="text-sm ml-2 font-normal text-muted-foreground">
-                        signed up
-                      </span>
-                    </div>
-                    <p className="text-sm font-normal text-muted-foreground">
-                      Tech Startup CEO
-                    </p>
-                    <p className="text-xs mt-1 text-muted-foreground">
-                      2 minutes ago
-                    </p>
-                  </div>
-                </div>
+                <div className="absolute top-0 bottom-10 left-0 ">
+                  <div className="absolute top-6 bottom-10 left-8 w-px bg-border"></div>
 
-                {/* Marcus Chen */}
-                <div className="relative mb-6 flex">
-                  <div className="z-10 flex-shrink-0">
-                    <div className="size-10 rounded-full bg-secondary backdrop-blur-2xl flex items-center justify-center text-primary font-semibold text-sm ring-4 ring-primary/30">
-                      MC
+                  {activities.map((activity, index) => (
+                    <div key={index} className="relative mb-6  ml-3 mt-3 flex">
+                      <div className="z-10 flex-shrink-0">
+                        <Avatar className="size-10 rounded-full bg-secondary backdrop-blur-2xl flex items-center justify-center text-primary font-semibold text-sm ring-4 ring-primary/30">
+                          <AvatarImage
+                            src={activity?.avatarUrl as string}
+                            alt={activity.initials}
+                            className="rounded-full"
+                          />
+                          <AvatarFallback className="text-primary">
+                            {activity.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                      <div className="ml-4">
+                        <div className="flex items-baseline">
+                          <h3 className="text-sm font-medium flex-1 text-foreground line-clamp-2">
+                            {activity.activityName}
+                          </h3>
+                          <span className="text-sm ml-2 font-normal flex-1 text-muted-foreground line-clamp-2">
+                            {activity.details}
+                          </span>
+                        </div>
+                        <p className="text-sm font-normal text-muted-foreground">
+                          {activity.timeAgo}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="ml-4">
-                    <div className="flex items-baseline">
-                      <h3 className="text-sm font-medium text-foreground">
-                        Marcus Chen
-                      </h3>
-                      <span className="ml-2 text-sm text-muted-foreground">
-                        signed up
-                      </span>
-                    </div>
-                    <p className="text-sm font-normal text-muted-foreground">
-                      Marketing Director
-                    </p>
-                    <p className="text-xs mt-1 text-muted-foreground">
-                      15 minutes ago
-                    </p>
-                  </div>
-                </div>
-
-                {/* Elena Rodriguez */}
-                <div className="relative mb-6 flex">
-                  <div className="z-10 flex-shrink-0">
-                    <div className="size-10 rounded-full bg-secondary backdrop-blur-2xl flex items-center justify-center text-primary font-semibold text-sm ring-4 ring-primary/30">
-                      ER
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <div className="flex items-baseline">
-                      <h3 className="text-sm font-medium text-foreground">
-                        Elena Rodriguez
-                      </h3>
-                      <span className="text-sm ml-2 text-muted-foreground">
-                        signed up
-                      </span>
-                    </div>
-                    <p className="text-sm font-normal text-muted-foreground">
-                      PR Agency Owner
-                    </p>
-                    <p className="text-xs mt-1 text-muted-foreground">
-                      1 hour ago
-                    </p>
-                  </div>
+                  ))}
                 </div>
               </div>
             </CardContent>

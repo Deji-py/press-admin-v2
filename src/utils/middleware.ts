@@ -100,7 +100,7 @@ export async function updateSession(request: NextRequest) {
     // Log out non-admins trying to access home or dashboard routes
     if (pathname === "/" || isDashboardRoute) {
       try {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
       } catch (error) {
         // console.error("Error during logout:", error);
       }

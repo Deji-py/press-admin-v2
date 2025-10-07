@@ -60,6 +60,7 @@ function Page() {
         onView={(row) => {
           window.open(`https://pressrelease.in/newsroom/${row.slug}`, "_blank");
         }}
+        order_by="release_date"
         additional_actions={Press_Release_Actions}
         excluded_columns={[
           "user_id",

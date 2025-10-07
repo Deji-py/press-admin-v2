@@ -42,6 +42,7 @@ interface TableQueryProps {
   onView?: (data: any) => void;
   additional_actions?: DataTableAction[];
   additional_buttons?: CustomButton[];
+  order_by?: string;
 }
 
 function InToolTable({
@@ -53,6 +54,7 @@ function InToolTable({
   onView,
   additional_actions = [],
   additional_buttons = [],
+  order_by = "created_at",
 }: TableQueryProps) {
   // ========================================
   // STATE MANAGEMENT
@@ -86,6 +88,7 @@ function InToolTable({
     table_name,
     excluded_columns,
     id_column,
+    order_by,
   });
 
   // ========================================

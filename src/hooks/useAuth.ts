@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmailOtpType, User, createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -107,7 +108,7 @@ const login = async (
 // Logout
 const logout = async (callbacks?: AuthCallback<void>): Promise<void> => {
   try {
-    const { error } = await supabaseClient.auth.signOut();
+    const { error } = await supabaseClient.auth.signOut({ scope: "local" });
     if (error) throw error;
     callbacks?.onSuccess?.(undefined);
   } catch (error) {

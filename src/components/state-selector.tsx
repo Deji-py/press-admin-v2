@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { nigeriaStates } from "@/data/nigeria-ststes";
+// import { nigeriaStates } from "@/data/nigeria-ststes";
 
 interface StateSelectorProps {
   className?: string;
@@ -41,7 +41,12 @@ export function StateSelector({ className }: StateSelectorProps) {
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="All">All States</SelectItem>
-        {nigeriaStates.map((state) => (
+        {[
+          {
+            id: 1,
+            name: "Federal Capital Territory",
+          },
+        ].map((state) => (
           <SelectItem
             key={state.id}
             value={
