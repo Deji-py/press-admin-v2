@@ -36,8 +36,10 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "./ui/breadcrumb";
+import { useActivities } from "@/hooks/useActivities";
 
 export function SiteHeader() {
+  const { activities, loading, error } = useActivities();
   const { logout, user } = useAuth();
   const { setTheme, theme } = useTheme();
   const router = useRouter();
@@ -48,23 +50,7 @@ export function SiteHeader() {
     router.push("/login");
   };
 
-  const notifications = [
-    { id: 1, message: "New user registered", time: "2 min ago", unread: true },
-    {
-      id: 2,
-      message: "System update completed",
-      time: "1 hour ago",
-      unread: true,
-    },
-    {
-      id: 3,
-      message: "Backup completed successfully",
-      time: "3 hours ago",
-      unread: false,
-    },
-  ];
-
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  // const unreadCount = activities.length;
 
   return (
     <header className="flex h-16 sticky top-0 z-40 shrink-0 items-center gap-2 border-b rounded-t-2xl bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-16">
@@ -76,7 +62,7 @@ export function SiteHeader() {
             orientation="vertical"
             className="mx-2 data-[orientation=vertical]:h-4"
           />
-          <Breadcrumb className="hidden md:flex">
+          <Breadcrumb className="hidden lg:flex">
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink href="/">Home</BreadcrumbLink>
@@ -140,51 +126,72 @@ export function SiteHeader() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9 w-9 p-0 relative"
+                className="h-9 w-9 flex flex-col justify-center items-center p-0 relative"
               >
                 <Bell className="h-4 w-4" />
-                {unreadCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
-                  >
-                    {unreadCount}
-                  </Badge>
-                )}
+
+                <Badge
+                  variant="destructive"
+                  className="absolute  -mt-5 -mr-5 h-2 w-2 p-0 flex items-center justify-center text-xs"
+                />
+
                 <span className="sr-only">Notifications</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuContent align="end" className="w-100 max-h-xs">
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {notifications.length === 0 ? (
+              {loading ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  Loading activities...
+                </div>
+              ) : error ? (
+                <div className="p-4 text-center text-sm text-red-500">
+                  Error loading activities
+                </div>
+              ) : activities.length === 0 ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   No notifications
                 </div>
               ) : (
-                notifications.map((notification) => (
+                activities.slice(0, 3).map((activity) => (
                   <DropdownMenuItem
-                    key={notification.id}
+                    key={activity.id}
                     className="flex flex-col items-start p-3 cursor-pointer"
                   >
-                    <div className="flex w-full items-start justify-between">
-                      <p className="text-sm font-medium flex-1">
-                        {notification.message}
-                      </p>
-                      {notification.unread && (
-                        <div className="h-2 w-2 bg-blue-500 rounded-full mt-1 ml-2 flex-shrink-0" />
-                      )}
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <div className="flex items-start gap-2 flex-1">
+                        <Avatar className="h-6 bg-secondary/30 text-secondary-foreground w-6 flex-shrink-0 mt-0.5">
+                          <AvatarFallback className="text-xs bg-secondary text-secondary-foreground font-semibold rounded-full">
+                            {activity.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">
+                            {activity.userName || "Anonymous"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {activity.activityName}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                            {activity.details}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {notification.time}
+                    <p className="text-xs text-muted-foreground mt-1 ml-8">
+                      {activity.timeAgo}
                     </p>
                   </DropdownMenuItem>
                 ))
               )}
-              {notifications.length > 0 && (
+              {!loading && !error && activities.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-center justify-center">
+                  <DropdownMenuItem
+                    onClick={() => router.push("/dashboard/activities")}
+                    className="text-center justify-center"
+                  >
                     View all notifications
                   </DropdownMenuItem>
                 </>

@@ -48,11 +48,16 @@ const column_type_to_schema = (
 
     // Use override cell_type if available, otherwise use column type
     const cellType = override?.cell_type || column.type;
+    const inputType = override?.input_type;
 
     let fieldSchema: z.ZodTypeAny;
 
+    // Handle image inputs
+    if (inputType === "image-upload" || inputType === "image-url") {
+      fieldSchema = z.string();
+    }
     // Handle select options (should be string to match option values)
-    if (override?.options) {
+    else if (override?.options) {
       fieldSchema = z.string();
     } else {
       switch (cellType) {
@@ -159,12 +164,13 @@ const generateFormConfig = (
   return columns.map((column) => {
     const overide = overrides?.find((o) => o.column_name === column.key);
     const cellType = overide?.cell_type || column.type || "text";
+    const inputType = cellTypeToInputType(cellType, overide);
 
     const formField: FormType[0] = {
       label: column.header,
       name: column.key,
-      input_type: cellTypeToInputType(cellType, overide),
-      placeholder: `Enter ${column.header.toLowerCase()}...`,
+      input_type: inputType,
+      placeholder: getPlaceholder(inputType, column.header),
       defaultValue: getDefaultValue(cellType, overide),
       options: overide?.options,
     };
@@ -173,11 +179,38 @@ const generateFormConfig = (
   });
 };
 
+// Get placeholder text based on input type
+const getPlaceholder = (
+  inputType: FormType[0]["input_type"],
+  header: string
+): string => {
+  switch (inputType) {
+    case "image-upload":
+      return "Upload an image...";
+    case "image-url":
+      return "Paste image URL...";
+    case "combobox":
+      return "Type and press space to add...";
+    case "select":
+      return "Select an option...";
+    default:
+      return `Enter ${header.toLowerCase()}...`;
+  }
+};
+
 // Get default values based on column type and overrides
 const getDefaultValue = (
   cellType?: CellType,
   override?: ColumnOverride
 ): any => {
+  // Handle image input types
+  if (
+    override?.input_type === "image-upload" ||
+    override?.input_type === "image-url"
+  ) {
+    return "";
+  }
+
   // If options are provided, default to first option value or empty string
   if (override?.options) {
     return override.options[0]?.value || "";

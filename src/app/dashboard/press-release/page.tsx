@@ -7,11 +7,17 @@ import { DataTableAction } from "@/components/core/InToolTable/types/table.types
 import { CheckCircle, XCircle } from "lucide-react";
 import React, { useState } from "react";
 import RejectionReason from "./dialogs/RejactionReason";
+import { useCRUD } from "@/hooks/useCrud";
+import { toast } from "sonner";
 
 function Page() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
-
+  const { isUpdating, update } = useCRUD("press_releases");
+  const { items: packages } = useCRUD<{ name: string; id: string }>("packages");
+  const { items: industries } = useCRUD<{ name: string; id: string }>(
+    "industries"
+  );
   const column_overrides: ColumnOverrides = [
     {
       column_name: "admin_status",
@@ -31,6 +37,43 @@ function Page() {
         },
       ],
     },
+    {
+      column_name: "distribution_package",
+      input_type: "select",
+      options: packages.map((item) => ({ label: item.name, value: item.id })),
+    },
+    {
+      column_name: "distribution_channels",
+      input_type: "select",
+      options: [
+        { label: "pressrelease.in only", value: "pressrelease.in only" },
+        {
+          label: "national pr distribution",
+          value: "national pr distribution",
+        },
+        {
+          label: "international pr distribution",
+          value: "international pr distribution",
+        },
+      ],
+    },
+    {
+      column_name: "industry",
+      input_type: "select",
+      options: industries.map((item) => ({
+        label: item.name,
+        value: item.name,
+      })),
+    },
+    {
+      column_name: "cover_image_url",
+      input_type: "image-url",
+    },
+
+    {
+      column_name: "slug",
+      input_type: "slug",
+    },
   ];
 
   const handleReject = (row: any) => {
@@ -41,15 +84,27 @@ function Page() {
   const Press_Release_Actions: DataTableAction<unknown>[] = [
     {
       label: "Approve",
-      onClick: (row) => {
-        // Add your approval logic here
-        console.log("Approving press release:", row);
+      onClick: async (row: any) => {
+        if (!row) return;
+        if (row.admin_status === "approved") {
+          toast.error("Press release already approved");
+          return;
+        }
+        await update({
+          id: row.id,
+          admin_status: "approved",
+        });
       },
-      icon: <CheckCircle />,
+      disabled: () => isUpdating,
+      icon: isUpdating ? (
+        <div className="animate-spin h-4 w-4 rounded-full border-2 border-secondary border-t-transparent"></div>
+      ) : (
+        <CheckCircle />
+      ),
     },
     {
       label: "Reject",
-      onClick: handleReject,
+      onClick: (row: any) => handleReject(row),
       icon: <XCircle />,
     },
   ];
@@ -60,23 +115,21 @@ function Page() {
         onView={(row) => {
           window.open(`https://pressrelease.in/newsroom/${row.slug}`, "_blank");
         }}
+        enableSearch
+        disableCreate
         order_by="release_date"
         additional_actions={Press_Release_Actions}
         excluded_columns={[
-          "user_id",
           "role",
           "location",
           "embedded_video_url",
           "embedded_video_title",
           "status",
-          "distribution_package",
           "created_at",
           "payment_id",
           "order_id",
           "show_email",
           "show_phone",
-          "summary",
-          "body",
           "is_immediate",
           "location_city",
           "location_state",
@@ -84,9 +137,15 @@ function Page() {
           "location_zip",
           "language",
           "pr_pdf_url",
+          "fts",
         ]}
         table_name="press_releases"
-        table_hidden_columns={["slug"]}
+        table_hidden_columns={[
+          "slug",
+          "user_id",
+          "summary",
+          "distribution_package",
+        ]}
         column_overrides={column_overrides}
       />
 

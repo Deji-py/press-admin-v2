@@ -3,5 +3,5 @@ export function formatCurrency(amount: number, currency = "INR"): string {
     style: "currency",
     currency: currency,
     minimumFractionDigits: 0,
-  }).format(amount / 100); // Convert paise to rupees
+  }).format(amount); // Convert paise to rupees
 }

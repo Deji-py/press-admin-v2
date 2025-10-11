@@ -1,13 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabaseClient } from "@/utils/client";
 import { PostgrestError } from "@supabase/supabase-js";
+import { OpenAI } from "openai";
 
 type FetchTableDataParams = {
   table_name: string;
   excluded_columns?: string[];
   current_page: number;
   page_size: number;
-  order_by?: string; // Optional: specify the ID column name, defaults to 'id'
+  order_by?: string;
+  search_query?: string;
+  excluded_search_columns?: string[];
 };
 
 type FetchTableDataResult = {
@@ -22,9 +25,34 @@ export const fetchTableData = async ({
   current_page,
   page_size,
   order_by = "id",
+  search_query = "",
 }: FetchTableDataParams): Promise<FetchTableDataResult> => {
   try {
-    // Calculate correct range for pagination
+    // If search query exists, use the rich_search function
+    if (search_query && search_query.trim()) {
+      const { data, error } = await supabaseClient.rpc("full_text_search", {
+        p_table_name: table_name,
+        query_text: search_query,
+        p_excluded_columns: excluded_columns,
+      });
+
+      if (error) {
+        console.log(error);
+        throw error;
+      }
+
+      // Extract results from JSONB response
+      const result = data?.[0].result || [];
+      const totalCount = data?.total_count || 0;
+
+      return {
+        count: totalCount,
+        data: Array.isArray(result) ? result : [],
+        error: null,
+      };
+    }
+
+    // Original fetch logic for non-search queries
     const from = (current_page - 1) * page_size;
     const to = from + page_size - 1;
 
@@ -32,7 +60,7 @@ export const fetchTableData = async ({
     const { data: sample, error: sampleError } = await supabaseClient
       .from(table_name)
       .select("*")
-      .range(0, 0); // Just get first row to inspect columns
+      .range(0, 0);
 
     if (sampleError) {
       throw sampleError;
@@ -63,9 +91,8 @@ export const fetchTableData = async ({
       error: null,
     };
   } catch (err: any) {
-    // Re-throw PostgrestError as-is, convert other errors to PostgrestError-like structure
     if (err.code && err.message && err.details) {
-      throw err; // This is already a PostgrestError
+      throw err;
     } else {
       throw {
         code: "UNKNOWN_ERROR",
@@ -80,7 +107,7 @@ export const fetchTableData = async ({
 type DeleteTableDataParams = {
   table_name: string;
   data: string[] | string;
-  id_column?: string; // Optional: specify the ID column name, defaults to 'id'
+  id_column?: string;
 };
 
 type DeleteTableDataResult = {
@@ -95,15 +122,13 @@ export const deleteTableData = async ({
   id_column = "id",
 }: DeleteTableDataParams): Promise<DeleteTableDataResult> => {
   try {
-    // Normalize data to array format
     const ids = Array.isArray(data) ? data : [data];
 
-    // Perform the delete operation
     const { data: deletedData, error } = await supabaseClient
       .from(table_name)
       .delete()
       .in(id_column, ids)
-      .select(); // Return deleted rows
+      .select();
 
     if (error) {
       throw error;
@@ -115,9 +140,8 @@ export const deleteTableData = async ({
       success: true,
     };
   } catch (err: any) {
-    // Re-throw PostgrestError as-is, convert other errors to PostgrestError-like structure
     if (err.code && err.message && err.details !== undefined) {
-      throw err; // This is already a PostgrestError
+      throw err;
     } else {
       throw {
         code: "UNKNOWN_ERROR",
@@ -133,7 +157,7 @@ type UpdateTableDataParams = {
   table_name: string;
   id: string | number;
   data: Record<string, any>;
-  id_column?: string; // Optional: specify the ID column name, defaults to 'id'
+  id_column?: string;
 };
 
 type UpdateTableDataResult = {
@@ -149,12 +173,11 @@ export const updateTableData = async ({
   id_column = "id",
 }: UpdateTableDataParams): Promise<UpdateTableDataResult> => {
   try {
-    // Perform the update operation
     const { data: updatedData, error } = await supabaseClient
       .from(table_name)
       .update(data)
       .eq(id_column, id)
-      .select(); // Return updated rows
+      .select();
 
     if (error) {
       throw error;
@@ -166,9 +189,8 @@ export const updateTableData = async ({
       success: true,
     };
   } catch (err: any) {
-    // Re-throw PostgrestError as-is, convert other errors to PostgrestError-like structure
     if (err.code && err.message && err.details !== undefined) {
-      throw err; // This is already a PostgrestError
+      throw err;
     } else {
       throw {
         code: "UNKNOWN_ERROR",
@@ -196,11 +218,10 @@ export const createTableData = async ({
   data,
 }: CreateTableDataParams): Promise<CreateTableDataResult> => {
   try {
-    // Perform the insert operation
     const { data: createdData, error } = await supabaseClient
       .from(table_name)
       .insert(data)
-      .select(); // Return created rows
+      .select();
 
     if (error) {
       throw error;
@@ -212,9 +233,8 @@ export const createTableData = async ({
       success: true,
     };
   } catch (err: any) {
-    // Re-throw PostgrestError as-is, convert other errors to PostgrestError-like structure
     if (err.code && err.message && err.details !== undefined) {
-      throw err; // This is already a PostgrestError
+      throw err;
     } else {
       throw {
         code: "UNKNOWN_ERROR",

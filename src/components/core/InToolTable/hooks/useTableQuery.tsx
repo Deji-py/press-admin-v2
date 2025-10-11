@@ -15,6 +15,8 @@ interface TableQueryProps {
   excluded_columns?: string[];
   id_column?: string;
   order_by?: string;
+  excluded_search_columns?: string[];
+  search_query?: string;
 }
 
 interface DeleteMutationParams {
@@ -32,20 +34,21 @@ interface CreateMutationParams {
 
 function useTableQuery({
   table_name,
-  excluded_columns,
+  excluded_columns = [],
   id_column = "id",
   order_by = "created_at",
+  excluded_search_columns = ["id", "created_at", "updated_at"],
+  search_query = "",
 }: TableQueryProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-
   const searchParams = useSearchParams();
 
   const current_page = Number.parseInt(searchParams.get("page") || "1", 10);
-  const page_size = Number.parseInt(searchParams.get("pageSize") as string, 10);
+  const page_size = Number.parseInt(searchParams.get("pageSize") || "10", 10);
 
   const { data, isLoading } = useQuery({
-    queryKey: [table_name, user, current_page, page_size],
+    queryKey: [table_name, user, current_page, page_size, search_query],
     queryFn: () =>
       fetchTableData({
         table_name,
@@ -53,6 +56,8 @@ function useTableQuery({
         current_page,
         page_size,
         order_by,
+        search_query,
+        excluded_search_columns,
       }),
   });
 
@@ -119,7 +124,6 @@ function useTableQuery({
   return {
     data,
     loading: isLoading,
-
     // Delete Mutation
     delete: delete_mutation,
 

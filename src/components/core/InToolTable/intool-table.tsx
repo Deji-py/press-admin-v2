@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { CustomButton, DataTable } from "./data-table";
 import useTableQuery from "./hooks/useTableQuery";
 import {
@@ -10,11 +10,12 @@ import {
   DataTableColumn,
 } from "./types/table.types";
 import { generateTableColumns } from "./column-transformer";
-import { EyeIcon, PenBox, Trash, View } from "lucide-react";
+import { EyeIcon, PenBox, Trash, Search, X } from "lucide-react";
 import { IconRotate } from "@tabler/icons-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import CreateEditRecord from "./create-edit-record";
 import ViewRecord from "./view-record";
+import DebouncedSearchInput from "./table-search";
 
 export type ColumnOverrides = Array<{
   column_name: string;
@@ -28,7 +29,10 @@ export type ColumnOverrides = Array<{
     | "select"
     | "date"
     | "otp"
-    | "combobox";
+    | "combobox"
+    | "image-upload"
+    | "image-url"
+    | "slug";
   cell_type?: CellType;
   options?: Array<{ label: string; value: string | number }>;
 }>;
@@ -43,7 +47,46 @@ interface TableQueryProps {
   additional_actions?: DataTableAction[];
   additional_buttons?: CustomButton[];
   order_by?: string;
+  disableCreate?: boolean;
+  enableSearch?: boolean;
+  excluded_search_columns?: string[];
 }
+
+// ========================================
+// SEARCH BAR COMPONENT (Memoized)
+// ========================================
+interface SearchBarProps {
+  searchInput: string;
+  onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearSearch: () => void;
+}
+
+const SearchBar = React.memo(
+  ({ searchInput, onSearchChange, onClearSearch }: SearchBarProps) => (
+    <div className="flex items-center gap-2">
+      <div className="relative flex-1 min-w-64">
+        <input
+          type="text"
+          placeholder="Search all columns..."
+          value={searchInput}
+          onChange={onSearchChange}
+          className="w-full px-4 py-2 pl-10 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        />
+        <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+        {searchInput && (
+          <button
+            onClick={onClearSearch}
+            className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+);
+
+SearchBar.displayName = "SearchBar";
 
 function InToolTable({
   table_name,
@@ -55,6 +98,9 @@ function InToolTable({
   additional_actions = [],
   additional_buttons = [],
   order_by = "created_at",
+  disableCreate = false,
+  enableSearch = false,
+  excluded_search_columns = ["id", "created_at", "updated_at"],
 }: TableQueryProps) {
   // ========================================
   // STATE MANAGEMENT
@@ -62,6 +108,7 @@ function InToolTable({
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [showDeleteConsent, setShowDeleteConsent] = useState(false);
   const [row_ids, setRowIds] = useState<string[] | string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
 
   // Dialog state management
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -71,9 +118,10 @@ function InToolTable({
   const [currentViewRow, setCurrentViewRow] = useState<any>(null);
 
   // ========================================
-  // URL PARAMS & DATA FETCHING
+  // URL PARAMS & NAVIGATION
   // ========================================
   const searchParams = useSearchParams();
+
   const currentPage = searchParams.get("page");
   const pageSize = searchParams.get("pageSize");
   const params_ready = currentPage && pageSize;
@@ -89,19 +137,19 @@ function InToolTable({
     excluded_columns,
     id_column,
     order_by,
+    excluded_search_columns,
+    search_query: searchInput,
   });
 
   // ========================================
   // COLUMN PROCESSING
   // ========================================
 
-  // Generate table columns from data
   const table_columns: DataTableColumn[] = useMemo(
     () => generateTableColumns(data?.data as any),
     [data?.data]
   );
 
-  // Filter out excluded columns and get required columns for forms
   const form_columns = useMemo(
     () =>
       table_columns.filter(
@@ -110,16 +158,10 @@ function InToolTable({
     [table_columns, excluded_columns, id_column]
   );
 
-  // Define required columns (you can customize this logic)
   const required_columns = useMemo(
     () =>
       form_columns
-        .filter(
-          (col) =>
-            // Add your logic for determining required fields
-            // For now, assuming text and email fields are required
-            col.type === "text" || col.type === "email"
-        )
+        .filter((col) => col.type === "text" || col.type === "email")
         .map((col) => col.key),
     [form_columns]
   );
@@ -135,9 +177,6 @@ function InToolTable({
   // DELETE OPERATIONS
   // ========================================
 
-  /**
-   * Handle individual row deletion
-   */
   const handleDeleteRow = useCallback(
     (row: any) => {
       const rowId = row[id_column];
@@ -149,9 +188,6 @@ function InToolTable({
     [id_column]
   );
 
-  /**
-   * Handle bulk deletion confirmation
-   */
   const handleBulkDelete = useCallback(() => {
     if (selectedRows.length > 0) {
       const rowIds = selectedRows.map((row) => row[id_column]).filter(Boolean);
@@ -162,9 +198,6 @@ function InToolTable({
     }
   }, [selectedRows, id_column]);
 
-  /**
-   * Execute deletion after confirmation
-   */
   const handleConfirmDeletion = async () => {
     setSelectedRows([]);
     if (row_ids) {
@@ -180,32 +213,20 @@ function InToolTable({
   // CRUD OPERATIONS
   // ========================================
 
-  /**
-   * Handle create new record
-   */
   const handleCreate = useCallback(() => {
     setShowCreateDialog(true);
   }, []);
 
-  /**
-   * Handle edit record
-   */
   const handleEdit = useCallback((row: any) => {
     setCurrentEditRow(row);
     setShowEditDialog(true);
   }, []);
 
-  /**
-   * Handle view record
-   */
   const handleView = useCallback((row: any) => {
     setCurrentViewRow(row);
     setShowViewDialog(true);
   }, []);
 
-  /**
-   * Handle form submission for create
-   */
   const handleCreateSubmit = useCallback(
     async (formData: any) => {
       try {
@@ -218,9 +239,6 @@ function InToolTable({
     [createMutation]
   );
 
-  /**
-   * Handle form submission for edit
-   */
   const handleEditSubmit = useCallback(
     async (formData: any) => {
       if (!currentEditRow) return;
@@ -239,9 +257,6 @@ function InToolTable({
     [currentEditRow, id_column, updateMutation]
   );
 
-  /**
-   * Handle edit trigger from view dialog
-   */
   const handleEditFromView = useCallback((row: any) => {
     setShowViewDialog(false);
     setCurrentViewRow(null);
@@ -253,9 +268,6 @@ function InToolTable({
   // DIALOG HELPERS
   // ========================================
 
-  /**
-   * Generate delete confirmation dialog content
-   */
   const getDialogContent = () => {
     const count = Array.isArray(row_ids) ? row_ids?.length : 1;
     if (count === 0) return { title: "", description: "" };
@@ -272,9 +284,6 @@ function InToolTable({
   // TABLE CONFIGURATION
   // ========================================
 
-  /**
-   * Define row actions - combining default and additional actions
-   */
   const actions: DataTableAction[] = useMemo(() => {
     const defaultActions: DataTableAction[] = [
       {
@@ -301,16 +310,17 @@ function InToolTable({
     ];
   }, [handleEdit, handleView, handleDeleteRow, onView, additional_actions]);
 
-  /**
-   * Define custom table buttons - combining default and additional buttons
-   */
   const custom_buttons: CustomButton[] = useMemo(() => {
     const defaultButtons: CustomButton[] = [
-      {
-        label: "Create New",
-        onClick: handleCreate,
-        variant: "default",
-      },
+      ...(!disableCreate
+        ? [
+            {
+              label: "Create New",
+              onClick: handleCreate,
+              variant: "default" as const,
+            },
+          ]
+        : []),
       ...(selectedRows.length > 0
         ? [
             {
@@ -323,7 +333,13 @@ function InToolTable({
     ];
 
     return [...defaultButtons, ...additional_buttons];
-  }, [handleCreate, handleBulkDelete, selectedRows.length, additional_buttons]);
+  }, [
+    handleCreate,
+    handleBulkDelete,
+    selectedRows.length,
+    additional_buttons,
+    disableCreate,
+  ]);
 
   // ========================================
   // COMPUTED VALUES
@@ -334,6 +350,20 @@ function InToolTable({
   const formattedTableTitle = table_name
     ?.replace(/_/g, " ")
     .replace(/\b\w/g, (l) => l.toUpperCase());
+
+  // ========================================
+  // MEMOIZED SEARCH BAR
+  // ========================================
+  const searchBar = useMemo(
+    () =>
+      enableSearch ? (
+        <DebouncedSearchInput
+          onSearchChange={setSearchInput}
+          debounceDelay={300}
+        />
+      ) : null,
+    [enableSearch, searchInput]
+  );
 
   // ========================================
   // RENDER
@@ -389,23 +419,21 @@ function InToolTable({
         actions={actions}
         onSelectedRowsChange={handleSelectedRowsChange}
         table_hidden_columns={table_hidden_columns}
-        // Delete confirmation props
         onClose={() => {
           setShowDeleteConsent(false);
           setRowIds(null);
         }}
+        customComponentCenter={searchBar}
         onConfirm={handleConfirmDeletion}
         isDeleting={deleteMutation.isPending}
         showDeleteConsent={showDeleteConsent}
         dialogTitle={dialogTitle}
         dialogDescription={dialogDescription}
-        // Table data props
         disableFiltering
         data={data?.data as any}
         columns={table_columns}
         isLoading={loading}
         totalCount={data?.count as number}
-        // Loading state
         noDataComponent={
           data && params_ready ? null : (
             <div className="flex flex-col justify-center items-center">

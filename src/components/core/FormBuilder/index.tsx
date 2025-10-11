@@ -17,13 +17,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import React, { useState } from "react";
-import { useFormContext } from "react-hook-form";
+import { FieldValues, useFormContext, UseFormReturn } from "react-hook-form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, X } from "lucide-react"; // Added X for badge removal
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge"; // Added Badge import
 import { Editor } from "@/components/blocks/editor-x/editor";
 import { SerializedEditorState } from "lexical";
+import Image from "next/image";
+import useAuth from "@/hooks/useAuth";
 
 export type FormType = {
   options?: { label: string; value: string | number }[];
@@ -40,11 +42,15 @@ export type FormType = {
     | "date"
     | "otp"
     | "combobox"
-    | "rich-text";
+    | "rich-text"
+    | "image-upload"
+    | "image-url"
+    | "slug";
   defaultValue?: string | number | boolean | string[]; // Added string[] for combobox
   placeholder?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  slugSourceField?: string;
 }[];
 
 // Wrapper for inputs with icons and password toggle
@@ -63,7 +69,7 @@ const InputWrapper: React.FC<{
   showPassword,
   togglePasswordVisibility,
 }) => (
-  <div className="relative flex items-center">
+  <div className="relative flex flex-1 items-center">
     {leftIcon && (
       <span className="absolute left-3 text-gray-500">{leftIcon}</span>
     )}
@@ -120,16 +126,15 @@ export const RenderFormInput = (
   {
     fieldConfig,
     field,
-    fieldOptions,
+    form,
   }: {
     fieldConfig: FormType[number];
     field: any;
-    fieldOptions: {
-      [fieldName: string]: { value: string | number; label: string }[];
-    };
+    form: UseFormReturn<FieldValues, any, FieldValues>;
   } // Receive options here
 ) => {
   const { input_type, leftIcon, rightIcon, placeholder } = fieldConfig;
+  const { user } = useAuth();
 
   // Handle password visibility toggle
   const [showPassword, setShowPassword] = useState(false);
@@ -167,6 +172,53 @@ export const RenderFormInput = (
     field.onChange(newItems); // Update react-hook-form value
   };
 
+  // State for image preview
+  const [imagePreview, setImagePreview] = useState<string>(
+    typeof field.value === "string" ? field.value : ""
+  );
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setImagePreview(result);
+        field.onChange(result); // Store base64 string
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageUrlChange = (url: string) => {
+    setImagePreview(url);
+    field.onChange(url);
+  };
+
+  const generateSlug = (text: string) => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+  };
+
+  const handleSlugChange = (e: any) => {
+    const value = e.target.value;
+    field.onChange(generateSlug(value));
+  };
+
+  const handleAutoGenerate = () => {
+    const sourceFields = fieldConfig.slugSourceField || "title";
+
+    const sourceValue = form.getValues()[sourceFields];
+
+    if (sourceValue) {
+      field.onChange(generateSlug(sourceValue));
+    }
+  };
+
   switch (input_type) {
     case "rich-text":
       return (
@@ -184,7 +236,11 @@ export const RenderFormInput = (
     case "textarea":
     case "number": // Pass number input value as string, schema will handle coercion
     case "date":
-    case "otp":
+      const dateValue =
+        input_type === "date" && field.value
+          ? new Date(field.value).toISOString().split("T")[0]
+          : field.value;
+
       return (
         <InputWrapper
           leftIcon={leftIcon}
@@ -200,7 +256,7 @@ export const RenderFormInput = (
               {...field}
               placeholder={placeholder}
               className={leftIcon || rightIcon ? "pl-10 pr-10" : ""}
-              onChange={(e) => field.onChange(e.target.value)} // Pass raw string
+              onChange={(e) => field.onChange(e.target.value)}
             />
           ) : (
             <Input
@@ -208,13 +264,33 @@ export const RenderFormInput = (
                 input_type === "password" && showPassword ? "text" : input_type
               }
               {...field}
+              disabled={field?.name.includes("user_id") ? true : field.disabled}
+              value={
+                input_type === "date"
+                  ? dateValue
+                  : field?.name.includes("user_id")
+                  ? field.value || user?.id
+                  : field.value
+              }
               placeholder={placeholder}
               className={
                 leftIcon || rightIcon || input_type === "password"
                   ? "pl-10 pr-10"
                   : ""
               }
-              onChange={(e) => field.onChange(e.target.value)} // Pass raw string
+              onChange={(e) => {
+                if (input_type === "date") {
+                  // Convert YYYY-MM-DD back to ISO string with time
+                  const dateStr = e.target.value;
+                  field.onChange(dateStr ? `${dateStr}T00:00:00` : "");
+                } else {
+                  if (field.name === "user_id") {
+                    field.onChange(user?.id);
+                    return;
+                  }
+                  field.onChange(e.target.value);
+                }
+              }}
             />
           )}
         </InputWrapper>
@@ -270,6 +346,105 @@ export const RenderFormInput = (
           />
         </div>
       );
+    case "image-upload":
+      return (
+        <div className="space-y-4">
+          {imagePreview && (
+            <div className="relative w-full h-[300px]">
+              <Image
+                layout="fill"
+                objectFit="cover"
+                src={imagePreview}
+                alt="Preview"
+                className="w-full h-auto rounded-lg border border-gray-300"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() => {
+                  setImagePreview("");
+                  field.onChange("");
+                }}
+              >
+                <X size={16} />
+              </Button>
+            </div>
+          )}
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="cursor-pointer"
+          />
+        </div>
+      );
+    case "image-url":
+      return (
+        <div className="space-y-4">
+          {imagePreview && (
+            <div className="relative w-full h-[300px] ">
+              <Image
+                layout="fill"
+                objectFit="cover"
+                src={imagePreview}
+                alt="Preview"
+                className="w-full h-auto rounded-lg border border-gray-300"
+                onError={() => setImagePreview("")}
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() => {
+                  setImagePreview("");
+                  field.onChange("");
+                }}
+              >
+                <X size={16} />
+              </Button>
+            </div>
+          )}
+          <Input
+            type="text"
+            {...field}
+            placeholder={placeholder || "Paste image URL..."}
+            onChange={(e) => handleImageUrlChange(e.target.value)}
+            className={leftIcon || rightIcon ? "pl-10 pr-10" : ""}
+          />
+        </div>
+      );
+    case "slug":
+      return (
+        <div className="space-y-2">
+          <div className="flex w-full items-center  gap-2">
+            <InputWrapper
+              leftIcon={leftIcon}
+              rightIcon={rightIcon}
+              input_type={input_type}
+            >
+              <Input
+                {...field}
+                placeholder={
+                  placeholder || "Auto-generated or type manually..."
+                }
+                onChange={handleSlugChange}
+                className={leftIcon || rightIcon ? "pl-10 pr-10" : ""}
+              />
+            </InputWrapper>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleAutoGenerate}
+              className="whitespace-nowrap ring-4 ring-secondary-foreground/30 border-primary border"
+            >
+              Auto Generate
+            </Button>
+          </div>
+        </div>
+      );
     default:
       return (
         <InputWrapper
@@ -279,6 +454,8 @@ export const RenderFormInput = (
         >
           <Input
             {...field}
+            value={field.value || user?.id}
+            disabled={field?.name.includes("user_id") ? true : field.disabled}
             placeholder={placeholder}
             className={leftIcon || rightIcon ? "pl-10 pr-10" : ""}
             onChange={(e) => field.onChange(e.target.value)} // Pass raw string
@@ -319,7 +496,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({
                         <RenderFormInput
                           fieldConfig={fieldConfig}
                           field={field}
-                          fieldOptions={fieldOptions}
+                          form={form}
                         />
                       }
                     </div>
@@ -333,7 +510,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({
                   <RenderFormInput
                     fieldConfig={fieldConfig}
                     field={field}
-                    fieldOptions={fieldOptions}
+                    form={form}
                   />
                 )}
               </FormControl>

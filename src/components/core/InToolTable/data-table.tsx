@@ -90,6 +90,7 @@ type DataTableProps<TData, TValue> = {
   dialogTitle?: string; // New: Custom title for the delete dialog
   dialogDescription?: string; // New: Custom description for the delete dialog
   table_hidden_columns: string[];
+  
 };
 
 function Data_table<TData, TValue>({

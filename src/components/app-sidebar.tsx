@@ -33,8 +33,14 @@ import {
   Headphones,
   Bell,
   UserX,
+  Newspaper,
 } from "lucide-react";
-import { IconCategory, IconCreditCardOff, IconCube } from "@tabler/icons-react";
+import {
+  IconCategory,
+  IconCreditCardOff,
+  IconCube,
+  IconMicrophone,
+} from "@tabler/icons-react";
 import clsx from "clsx";
 
 const data = {
@@ -47,62 +53,72 @@ const data = {
     {
       title: "Dashboard",
       url: "/dashboard",
-      icon: <LayoutPanelTop className="h-4 w-4" />,
+      icon: <LayoutPanelTop className="h-4 w-4 text-primary" />,
     },
     {
       title: "Users",
       url: "/dashboard/users",
-      icon: <User2 className="h-4 w-4" />,
+      icon: <User2 className="h-4 w-4 text-primary" />,
     },
     {
       title: "Press Release",
       url: "/dashboard/press-release",
-      icon: <Book className="h-4 w-4" />,
+      icon: <Book className="h-4 w-4 text-primary" />,
+    },
+    {
+      title: "Journalists",
+      url: "/dashboard/press-release",
+      icon: <IconMicrophone className="h-4 w-4 text-primary" />,
+    },
+    {
+      title: "Media Outlets",
+      url: "/dashboard/press-release",
+      icon: <Newspaper className="h-4 w-4 text-primary" />,
     },
     {
       title: "Categories",
       url: "/dashboard/categories",
-      icon: <IconCategory className="h-4 w-4" />,
+      icon: <IconCategory className="h-4 w-4 text-primary" />,
     },
     {
       title: "Subscriptions",
       url: "/dashboard/subscriptions",
-      icon: <Wallet className="h-4 w-4" />,
+      icon: <Wallet className="h-4 w-4 text-primary" />,
     },
     {
       title: "Packages",
       url: "/dashboard/packages",
-      icon: <IconCube className="h-4 w-4" />,
+      icon: <IconCube className="h-4 w-4 text-primary" />,
     },
     {
       title: "Subscription Plans",
       url: "/dashboard/subscription-plans",
-      icon: <CreditCard className="h-4 w-4" />,
+      icon: <CreditCard className="h-4 w-4 text-primary" />,
     },
     {
       title: "Newsletter",
       url: "/dashboard/newsletter",
-      icon: <Mail className="h-4 w-4" />,
+      icon: <Mail className="h-4 w-4 text-primary" />,
     },
     {
       title: "Support",
       url: "/dashboard/support",
-      icon: <Headphones className="h-4 w-4" />,
+      icon: <Headphones className="h-4 w-4 text-primary" />,
     },
     {
       title: "Activities",
       url: "/dashboard/activities",
-      icon: <Bell className="h-4 w-4" />,
+      icon: <Bell className="h-4 w-4 text-primary" />,
     },
     {
       title: "Subscription Cancellation",
       url: "/dashboard/subscription-cancellations",
-      icon: <IconCreditCardOff className="h-4 w-4" />,
+      icon: <IconCreditCardOff className="h-4 w-4 text-primary" />,
     },
     {
       title: "Account Deletion",
       url: "/dashboard/account-deletion",
-      icon: <UserX className="h-4 w-4" />,
+      icon: <UserX className="h-4 w-4 text-primary" />,
     },
   ],
 };
@@ -201,14 +217,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
               {/* Copyright */}
               <div className="text-xs text-muted-foreground/70">
-                © 2024 Your Company
-              </div>
-
-              {/* Made with love */}
-              <div className="flex items-center gap-1 text-xs text-muted-foreground/60 pt-1">
-                <span>Made with</span>
-                <Heart className="h-3 w-3 text-rose-500 fill-current animate-pulse" />
-                <span>by Your Team</span>
+                © 2024 pressrelease.in
               </div>
             </div>
           </div>
@@ -224,7 +233,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 onClick={() => window.open("/help", "_blank")}
                 title="Help & Support"
               >
-                <HelpCircle className="h-4 w-4" />
+                <HelpCircle className="h-4 w-4 " />
               </Button>
 
               <Button
@@ -234,7 +243,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 onClick={() => window.open("/settings", "_blank")}
                 title="Settings"
               >
-                <Settings className="h-4 w-4" />
+                <Settings className="h-4 w-4 " />
               </Button>
             </div>
 

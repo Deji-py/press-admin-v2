@@ -10,56 +10,130 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useCRUD } from "@/hooks/useCrud";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { toast } from "sonner";
 
-function RejectionReason({
-  open,
-  selectedRow,
-  onClose,
-}: {
+const rejectionSchema = z.object({
+  reason: z
+    .string()
+    .min(10, "Reason must be at least 10 characters long")
+    .max(1000, "Reason must not exceed 1000 characters")
+    .trim(),
+});
+
+type RejectionFormValues = z.infer<typeof rejectionSchema>;
+
+interface RejectionReasonProps {
   open: boolean;
   selectedRow: any;
   onClose: () => void;
-}) {
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+}
 
-  const handleConfirmReject = async () => {
-    if (!rejectionReason.trim()) {
-      // You can add toast notification here
-      alert("Please provide a reason for rejection");
-      return;
-    }
+function RejectionReason({ open, selectedRow, onClose }: RejectionReasonProps) {
+  const { create } = useCRUD("press-release-rejections");
+  const { update } = useCRUD("press_releases");
+  const { readOne } = useCRUD("users");
 
-    setIsSubmitting(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
 
+  const form = useForm<RejectionFormValues>({
+    resolver: zodResolver(rejectionSchema),
+    defaultValues: {
+      reason: "",
+    },
+  });
+
+  // Fetch user email when dialog opens and selectedRow changes
+  useEffect(() => {
+    const fetchUserEmail = async () => {
+      if (!open || !selectedRow?.user_id) {
+        if (!open) {
+          // Reset form when dialog closes
+          form.reset();
+          setUserEmail(null);
+        }
+        return;
+      }
+
+      setIsLoadingUser(true);
+      try {
+        const userData = await readOne({
+          where: "user_id",
+          equalTo: selectedRow.user_id,
+        });
+        if (userData?.email) {
+          setUserEmail(userData.email);
+        }
+      } catch (error) {
+        console.error("Error fetching user email:", error);
+        toast.error("Could not load user email");
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    fetchUserEmail();
+  }, [open, selectedRow?.user_id, userEmail, setUserEmail, setIsLoadingUser]);
+
+  const handleConfirmReject = async (values: RejectionFormValues) => {
     try {
-      // Add your rejection logic here
-      console.log("Rejecting press release:", selectedRow);
-      console.log("Reason:", rejectionReason);
+      if (!selectedRow?.id) {
+        toast.error("No press release selected");
+        return;
+      }
 
-      // Example API call:
-      // await rejectPressRelease(selectedRow.id, rejectionReason);
+      if (!userEmail) {
+        toast.error("User email not loaded. Please try again.");
+        return;
+      }
 
-      // Close dialog and reset state
+      // Create rejection record
+      const rejectionData = {
+        release_id: selectedRow.id,
+        reason: values.reason,
+        email: userEmail,
+      };
 
-      setRejectionReason("");
+      await create(rejectionData);
 
+      // Update press release status
+      await update({
+        id: selectedRow.id,
+        admin_status: "rejected",
+      });
+
+      toast.success("Press release has been rejected successfully");
+
+      // Reset form and close dialog
+      form.reset();
+      setUserEmail(null); // Reset email for next use
       onClose?.();
-
-      // You can add success toast notification here
     } catch (error) {
       console.error("Error rejecting press release:", error);
-      // You can add error toast notification here
-    } finally {
-      setIsSubmitting(false);
+      toast.error("Failed to reject press release. Please try again.");
     }
   };
 
   const handleCloseDialog = () => {
-    setRejectionReason("");
+    if (!open) {
+      form.reset();
+      setUserEmail(null); // Reset email when closing
+    }
     onClose?.();
   };
 
@@ -74,44 +148,65 @@ function RejectionReason({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="rejection-reason">
-              Reason for Rejection <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              id="rejection-reason"
-              placeholder="Enter the reason for rejecting this press release..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              className="min-h-[120px] resize-none"
-              disabled={isSubmitting}
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(handleConfirmReject)}
+            className="space-y-4"
+          >
+            <FormField
+              control={form.control}
+              name="reason"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Reason for Rejection{" "}
+                    <span className="text-destructive">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter the reason for rejecting this press release..."
+                      className="min-h-[120px] resize-none"
+                      disabled={form.formState.isSubmitting}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Be specific and constructive with your feedback (10-1000
+                    characters)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <p className="text-xs text-muted-foreground">
-              Be specific and constructive with your feedback
-            </p>
-          </div>
-        </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={handleCloseDialog}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleConfirmReject}
-            disabled={isSubmitting || !rejectionReason.trim()}
-          >
-            {isSubmitting ? "Rejecting..." : "Confirm Rejection"}
-          </Button>
-        </DialogFooter>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseDialog}
+                disabled={form.formState.isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={
+                  form.formState.isSubmitting || isLoadingUser || !userEmail
+                }
+              >
+                {form.formState.isSubmitting
+                  ? "Rejecting..."
+                  : isLoadingUser
+                  ? "Loading..."
+                  : "Confirm Rejection"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
 }
 
-export default React.memo(RejectionReason)  ;
+export default React.memo(RejectionReason);
