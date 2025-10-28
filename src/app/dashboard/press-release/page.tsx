@@ -4,20 +4,23 @@ import InToolTable, {
   ColumnOverrides,
 } from "@/components/core/InToolTable/intool-table";
 import { DataTableAction } from "@/components/core/InToolTable/types/table.types";
-import { CheckCircle, XCircle } from "lucide-react";
-import React, { useState } from "react";
+import { CheckCircle, File, XCircle } from "lucide-react";
+import { useState } from "react";
 import RejectionReason from "./dialogs/RejactionReason";
 import { useCRUD } from "@/hooks/useCrud";
 import { toast } from "sonner";
+import UploadReport from "./dialogs/UploadReport";
 
 function Page() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
   const { isUpdating, update } = useCRUD("press_releases");
   const { items: packages } = useCRUD<{ name: string; id: string }>("packages");
   const { items: industries } = useCRUD<{ name: string; id: string }>(
     "industries"
   );
+
   const column_overrides: ColumnOverrides = [
     {
       column_name: "admin_status",
@@ -69,7 +72,6 @@ function Page() {
       column_name: "cover_image_url",
       input_type: "image-url",
     },
-
     {
       column_name: "slug",
       input_type: "slug",
@@ -79,6 +81,11 @@ function Page() {
   const handleReject = (row: any) => {
     setSelectedRow(row);
     setShowRejectDialog(true);
+  };
+
+  const handleUploadReport = (row: any) => {
+    setSelectedRow(row);
+    setShowReportDialog(true);
   };
 
   const Press_Release_Actions: DataTableAction<unknown>[] = [
@@ -106,6 +113,11 @@ function Page() {
       label: "Reject",
       onClick: (row: any) => handleReject(row),
       icon: <XCircle />,
+    },
+    {
+      label: "Add Report",
+      onClick: (row: any) => handleUploadReport(row),
+      icon: <File />,
     },
   ];
 
@@ -136,7 +148,6 @@ function Page() {
           "location_country",
           "location_zip",
           "language",
-          "pr_pdf_url",
           "fts",
         ]}
         table_name="press_releases"
@@ -154,6 +165,15 @@ function Page() {
         open={showRejectDialog}
         onClose={() => {
           setShowRejectDialog(false);
+          setSelectedRow(null);
+        }}
+      />
+
+      <UploadReport
+        selectedRow={selectedRow}
+        open={showReportDialog}
+        onClose={() => {
+          setShowReportDialog(false);
           setSelectedRow(null);
         }}
       />
